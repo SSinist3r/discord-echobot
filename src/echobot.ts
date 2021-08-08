@@ -37,7 +37,7 @@ const logger = winston.createLogger({
         winston.format.printf(info => {
             return `${info.timestamp} [${info.level.toLocaleUpperCase()}]: ${info.message}`;
         })
-    ),
+        ),
     transports: new winston.transports.Console()
 });
 
@@ -152,7 +152,7 @@ class EchoBot {
     }
 
     /**
-     * Signs into the Discord client with the token in the config,
+     * Signs inato the Discord client with the token in the config,
      * and subscribes to message listeners.
      */
     private loginToDiscord(): void {
@@ -167,11 +167,11 @@ class EchoBot {
         // Register event for when client receives a message.
         discordClient.on('message', (message) => {
             this.onDiscordClientMessageReceived(message)
-                .then(() => logger['debug']("Message handled gracefully."))
-                .catch(err => {
-                    logger.error("Failed to handle message:")
-                    logger.error(err)
-                })
+            .then(() => logger['debug']("Message handled gracefully."))
+            .catch(err => {
+                logger.error("Failed to handle message:")
+                logger.error(err)
+            })
         });
 
         // Register event for when an error occurs.
@@ -184,10 +184,10 @@ class EchoBot {
 
         // Login.
         discordClient
-            .login(config.token)
-            .catch(err => {
-                logger.error("Could not sign into Discord:", err);
-            });
+        .login(config.token)
+        .catch(err => {
+            logger.error("Could not sign into Discord:", err);
+        });
     }
 
     /**
@@ -195,10 +195,15 @@ class EchoBot {
      * @param message The message that was received.
      */
     private async onDiscordClientMessageReceived(message: Discord.Message): Promise<void> {
+
+        if(message.content.search(/Demanor/gi) == -1)
+        {
+            return;
+        }
         // Find redirects that have this message's channel id as a source.
         let matchingRedirects = config.redirects.filter(redirect =>
             redirect.sources.some(source => source == message.channel.id)
-        );
+            );
 
         // Redirect to each destination.
         for (let redirect of matchingRedirects) {
@@ -230,7 +235,7 @@ class EchoBot {
             for (let destination of redirect.destinations) {
 
                 // Find destination channel.
-                let destChannel = discordClient.channels.get(destination);
+                let destChannel = discordClient.channels.cache.get(destination);
                 if (destChannel == null) {
                     Promise.reject(`Could not redirect from channel ID ${message.channel.id} to channel ID ${destination}: Destination channel was not found.`);
                     return;
@@ -248,7 +253,7 @@ class EchoBot {
                     let options: Discord.MessageOptions = {
                         nonce: this.generateNonce()
                     }
-                    if (header instanceof Discord.RichEmbed) {
+                    if (header instanceof Discord.MessageEmbed) {
                         options.embed = header;
                         await (destChannel as TextChannel).send(options);
                         logger.debug("Sent header as embed.");
@@ -264,7 +269,7 @@ class EchoBot {
                 let options: Discord.MessageOptions = {
                     nonce: this.generateNonce(),
                     files: redirect.options.copyAttachments ? message.attachments.map(attachment => {
-                        return new Discord.Attachment(attachment.url, attachment.filename)
+                        return new Discord.MessageAttachment(attachment.url, attachment.name)
                     }) : [],
                     embed: body.embed
                 }
@@ -290,10 +295,10 @@ class EchoBot {
         return parts.join("/")
     }
 
-    private createHeader(message: Discord.Message, redirect: EchobotRedirect): Discord.RichEmbed | string | null {
+    private createHeader(message: Discord.Message, redirect: EchobotRedirect): Discord.MessageEmbed | string | null {
         if (redirect.options && redirect.options.richEmbed) {
             // Sending a rich embed.
-            let richEmbed = new Discord.RichEmbed({
+            let richEmbed = new Discord.MessageEmbed({
                 color: redirect.options.richEmbedColor ? redirect.options.richEmbedColor : 30975
             });
 
@@ -332,15 +337,15 @@ class EchoBot {
         }
     }
 
-    private createBody(message: Discord.Message, redirect: EchobotRedirect): { contents?: string, embed?: Discord.RichEmbed } {
+    private createBody(message: Discord.Message, redirect: EchobotRedirect): { contents?: string, embed?: Discord.MessageEmbed } {
         let contents = message.content;
-        let embed: Discord.RichEmbed = undefined;
+        let embed: Discord.MessageEmbed = undefined;
 
         // Copy rich embed if requested.
         if (redirect.options && redirect.options.copyRichEmbed) {
             let receivedEmbed = message.embeds.find(e => e.type == 'rich')
             if (receivedEmbed) {
-                embed = new Discord.RichEmbed(receivedEmbed);
+                embed = new Discord.MessageEmbed(receivedEmbed);
             }
         }
 
